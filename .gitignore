@@ -1,0 +1,9 @@
+.env
+.venv/
+node_modules/
+web/test-results/
+web/playwright-report/
+web/e2e-screens/
+.pytest_cache/
+__pycache__/
+*.pyc

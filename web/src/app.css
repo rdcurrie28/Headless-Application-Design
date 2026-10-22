@@ -1,0 +1,327 @@
+/* ---------- Theme: red / black / white on top of PatternFly 6 tokens ---------- */
+:root {
+  --ci-red: #e00000;
+  --ci-red-hover: #b80000;
+  --ci-red-dark: #8f0000;
+  --ci-red-tint: #fff1f1;
+  --ci-black: #0b0b0c;
+  --ci-ink: #151517;
+  --ci-gray-800: #2a2a2e;
+  --ci-gray-500: #6b6b73;
+  --ci-gray-200: #e6e6ea;
+  --ci-gray-100: #f4f4f6;
+  --ci-white: #ffffff;
+  --ci-radius: 14px;
+  --ci-shadow: 0 1px 2px rgba(11, 11, 12, 0.04), 0 4px 16px rgba(11, 11, 12, 0.06);
+
+  --pf-t--global--font--family--body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --pf-t--global--font--family--heading: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --pf-t--global--color--brand--default: var(--ci-red);
+  --pf-t--global--color--brand--hover: var(--ci-red-hover);
+  --pf-t--global--color--brand--clicked: var(--ci-red-dark);
+  --pf-t--global--border--color--brand--default: var(--ci-red);
+  --pf-t--global--border--color--brand--hover: var(--ci-red-hover);
+  --pf-t--global--border--color--brand--clicked: var(--ci-red-dark);
+  --pf-t--global--icon--color--brand--default: var(--ci-red);
+  --pf-t--global--icon--color--brand--hover: var(--ci-red-hover);
+  --pf-t--global--text--color--link--default: var(--ci-red);
+  --pf-t--global--text--color--link--hover: var(--ci-red-hover);
+  --pf-t--global--text--color--link--visited: var(--ci-red);
+  --pf-t--global--text--color--regular: var(--ci-ink);
+
+  --pf-t--global--background--color--secondary--default: var(--ci-gray-100);
+}
+
+body {
+  background: var(--ci-gray-100);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* PatternFly injects component CSS after this file, so overrides set on the
+   component element itself are prefixed with `html` to win on specificity. */
+
+/* ---------- Masthead ---------- */
+html .pf-v6-c-masthead {
+  --pf-v6-c-masthead--BackgroundColor: var(--ci-black);
+  --pf-v6-c-masthead--BorderColor: transparent;
+  border-bottom: 3px solid var(--ci-red);
+  color: var(--ci-white);
+}
+html .pf-v6-c-masthead .pf-v6-c-button.pf-m-plain,
+html .pf-v6-c-masthead .pf-v6-c-button.pf-m-plain svg {
+  color: var(--ci-white);
+}
+
+.ci-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ci-white);
+  text-decoration: none;
+}
+.ci-brand:hover {
+  color: var(--ci-white);
+  text-decoration: none;
+}
+.ci-brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--ci-red);
+  color: var(--ci-white);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.ci-brand-sub {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ---------- Sidebar ---------- */
+.pf-v6-c-page__sidebar {
+  --pf-v6-c-page__sidebar--BackgroundColor: var(--ci-black);
+  --pf-v6-c-page__sidebar--xl--BackgroundColor: var(--ci-black);
+  --pf-v6-c-page__sidebar--BorderInlineEndWidth: 0;
+}
+.pf-v6-c-page__sidebar .pf-v6-c-nav {
+  --pf-v6-c-nav__link--Color: rgba(255, 255, 255, 0.72);
+  --pf-v6-c-nav__link--hover--Color: var(--ci-white);
+  --pf-v6-c-nav__link--hover--BackgroundColor: rgba(255, 255, 255, 0.06);
+  --pf-v6-c-nav__link--m-current--Color: var(--ci-white);
+  --pf-v6-c-nav__link--m-current--BackgroundColor: rgba(224, 0, 0, 0.18);
+}
+.pf-v6-c-page__sidebar .pf-v6-c-nav__link {
+  border-radius: 10px;
+  font-weight: 500;
+}
+.pf-v6-c-page__sidebar .pf-v6-c-nav__link.pf-m-current {
+  box-shadow: inset 3px 0 0 var(--ci-red);
+}
+.ci-nav-section {
+  padding: 1rem 1rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* ---------- Main area ---------- */
+html .pf-v6-c-page__main-container {
+  --pf-v6-c-page__main-container--BackgroundColor: var(--ci-gray-100);
+  --pf-v6-c-page__main-container--BoxShadow: none;
+  --pf-v6-c-page__main-container--BorderColor: transparent;
+}
+html .pf-v6-c-page__main-section {
+  background: transparent;
+}
+
+.ci-page-title {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.ci-eyebrow {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ci-red);
+}
+
+/* Panels: tables and toolbars sit on white rounded surfaces */
+.ci-panel {
+  background: var(--ci-white);
+  border: 1px solid var(--ci-gray-200);
+  border-radius: var(--ci-radius);
+  box-shadow: var(--ci-shadow);
+  padding: 0.5rem 0.75rem 0.75rem;
+  overflow: hidden;
+}
+.ci-panel .pf-v6-c-toolbar {
+  background: transparent;
+}
+
+/* Tables */
+.pf-v6-c-table thead th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ci-gray-500);
+}
+.pf-v6-c-table tbody tr {
+  transition: background-color 120ms ease;
+}
+.pf-v6-c-table tbody tr:hover {
+  background: var(--ci-red-tint);
+}
+.pf-v6-c-table a {
+  font-weight: 600;
+  color: var(--ci-ink);
+  text-decoration: none;
+}
+.pf-v6-c-table a:hover {
+  color: var(--ci-red);
+}
+
+/* Cards */
+html .pf-v6-c-card {
+  --pf-v6-c-card--BorderRadius: var(--ci-radius);
+  --pf-v6-c-card--BorderColor: var(--ci-gray-200);
+  box-shadow: var(--ci-shadow);
+}
+.pf-v6-c-card__title-text {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Buttons */
+html .pf-v6-c-button {
+  --pf-v6-c-button--BorderRadius: 10px;
+}
+.pf-v6-c-button.pf-m-primary {
+  font-weight: 600;
+}
+
+/* ---------- Customer 360 hero ---------- */
+.ci-hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--ci-black);
+  color: var(--ci-white);
+  border-radius: var(--ci-radius);
+  padding: 1.75rem 1.75rem 1.5rem;
+}
+.ci-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 45%;
+  background: radial-gradient(circle at 100% 0%, rgba(224, 0, 0, 0.55), transparent 65%);
+  pointer-events: none;
+}
+.ci-hero > * {
+  position: relative;
+  z-index: 1;
+}
+.ci-hero .ci-page-title {
+  color: var(--ci-white);
+}
+.ci-hero .ci-eyebrow {
+  color: #ff5a5a;
+}
+.ci-hero .pf-v6-c-button.pf-m-secondary {
+  --pf-v6-c-button--m-secondary--Color: var(--ci-white);
+  --pf-v6-c-button--m-secondary--BorderColor: rgba(255, 255, 255, 0.4);
+  --pf-v6-c-button--m-secondary--hover--Color: var(--ci-white);
+  --pf-v6-c-button--m-secondary--hover--BorderColor: var(--ci-white);
+  --pf-v6-c-button--m-secondary--hover--BackgroundColor: rgba(255, 255, 255, 0.08);
+}
+.ci-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+  margin-top: 1.25rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.ci-fact-term {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+.ci-fact-value {
+  font-weight: 600;
+  color: var(--ci-white);
+}
+.ci-facts + .ci-facts {
+  margin-top: 0;
+  border-top-style: dashed;
+}
+.ci-fact-value a {
+  color: var(--ci-white);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 3px;
+}
+.ci-fact-value a:hover {
+  color: #ff5a5a;
+  text-decoration-color: currentColor;
+}
+
+.ci-crumbs a {
+  color: var(--ci-gray-500);
+  text-decoration: none;
+}
+.ci-crumbs a:hover {
+  color: var(--ci-red);
+}
+
+/* ---------- KPI strip ---------- */
+.ci-kpi {
+  height: 100%;
+  background: var(--ci-white);
+  border: 1px solid var(--ci-gray-200);
+  border-radius: var(--ci-radius);
+  box-shadow: var(--ci-shadow);
+  padding: 1rem 1.1rem;
+  border-top: 3px solid var(--ci-ink);
+}
+.ci-kpi.ci-kpi--alert {
+  border-top-color: var(--ci-red);
+}
+.ci-kpi.ci-kpi--alert .ci-kpi-value {
+  color: var(--ci-red);
+}
+.ci-kpi.ci-kpi--feature {
+  background: var(--ci-red);
+  border-color: var(--ci-red);
+  color: var(--ci-white);
+}
+.ci-kpi.ci-kpi--feature .ci-kpi-label {
+  color: var(--ci-white);
+}
+
+.ci-kpi-value {
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.ci-kpi-label {
+  margin-top: 0.25rem;
+  color: var(--ci-gray-500);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---------- Misc ---------- */
+.ci-score-big {
+  font-size: var(--pf-t--global--font--size--4xl);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ci-muted {
+  color: var(--ci-gray-500);
+}
+
+html .pf-v6-c-table .ci-progress-cell {
+  min-width: 10rem;
+}
