@@ -2,6 +2,11 @@ server {
     listen 8080;
     root /usr/share/nginx/html;
 
+    gzip on;
+    gzip_proxied any;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
     # Host must be the upstream's own hostname: Cloud Run routes by Host and needs SNI over HTTPS.
     location /v1/ {
         proxy_pass ${API_UPSTREAM};
