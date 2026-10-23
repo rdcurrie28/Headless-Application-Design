@@ -7,12 +7,16 @@ server {
     gzip_min_length 1024;
     gzip_types text/css application/javascript application/json image/svg+xml;
 
+    # Written at startup by 15-demo-auth.sh: basic auth when DEMO_USER/DEMO_PASSWORD are set, empty otherwise.
+    include /tmp/auth.conf;
+
     # Host must be the upstream's own hostname: Cloud Run routes by Host and needs SNI over HTTPS.
     location /v1/ {
         proxy_pass ${API_UPSTREAM};
         proxy_set_header Host $proxy_host;
         proxy_ssl_server_name on;
         proxy_set_header X-API-Key "${API_KEY}";
+        proxy_set_header Authorization "";
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
