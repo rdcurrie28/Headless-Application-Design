@@ -115,68 +115,7 @@ API           ->  FastAPI routers, API-key auth, CORS
 
 This section describes how the application is protected today, where each control lives in the code, and what still needs to be added before real customer data goes through it. It separates **what is implemented** from **what is planned**, so nothing here should be read as a stronger guarantee than the code gives.
 
-### Security at a glance
-
-Think of the app as a secure office building. A request passes **five checkpoints** on its way to the data, and each one catches a different kind of problem. If one fails, the next still protects the data. Security people call this "defense in depth".
-
-```mermaid
-flowchart LR
-    U["👤 Sales rep<br/>opens the app"]
-
-    subgraph S1["Step 1: Front door (website)"]
-        direction TB
-        S1a["DOES: shows screens only.<br/>Holds no passwords or keys."]
-        S1b["STOPS: secrets being<br/>lifted from the web page"]
-    end
-
-    subgraph S2["Step 2: Badge check (gateway)"]
-        direction TB
-        S2a["DOES: attaches the company badge<br/>behind the scenes. Strangers<br/>without a badge are turned away."]
-        S2b["STOPS: outsiders calling<br/>the system directly"]
-    end
-
-    subgraph S3["Step 3: Inspection (the API)"]
-        direction TB
-        S3a["DOES: checks every request is the right<br/>type and size. Allows only reading,<br/>or adding a note. Trusts only approved sites."]
-        S3b["STOPS: malicious input,<br/>tampering, hijacked requests"]
-    end
-
-    subgraph S4["Step 4: Limited keys (data access)"]
-        direction TB
-        S4a["DOES: each data system opens with its<br/>own key giving the minimum access.<br/>Sales data is read-only."]
-        S4b["STOPS: one mistake or breach<br/>spreading to other systems"]
-    end
-
-    subgraph S5["Step 5: Records room (data)"]
-        direction TB
-        S5a["DOES: documents stay private.<br/>Shared only by links that<br/>expire in 15 minutes."]
-        S5b["STOPS: lingering access<br/>to shared files"]
-    end
-
-    R["🛟 Built to keep working: if one system is down,<br/>only that card says 'unavailable'.<br/>Errors never reveal how the system is built."]
-    N["🔜 Still to come: personal sign-in (SSO),<br/>each rep sees only their own accounts,<br/>and an audit trail of who did what"]
-
-    U --> S1 --> S2 --> S3 --> S4 --> S5
-    S3 -.-> R
-    S2 -.-> N
-```
-
-| What could go wrong | In plain English, what protects us today |
-|---|---|
-| Someone steals a password or key from the website | The website never holds one. Keys live only on the company's servers. |
-| A stranger tries to use the system directly | No valid badge, no entry. |
-| Someone sends bad or oversized data to break in | Every request is checked for type, size and allowed action before it goes anywhere. |
-| A malicious website tries to act on a rep's behalf | The system only accepts requests from approved sites. |
-| An attacker tries to trick the database with crafted text | Typed text is always treated as plain data, never as a command. |
-| One system is breached and the damage spreads | Each system has its own limited key, and sales data is read-only. |
-| A shared document link is passed around | Links stop working after 15 minutes. |
-| One back-end system goes down | The rest of the page keeps working and no internal details are shown. |
-
-**The three ideas to remember:** (1) secrets stay behind the front door, (2) every request is checked before it reaches the data, and (3) each system gets only the minimum access it needs.
-
-**Honest status for this proof of concept:** the five checkpoints above are in place and working. What is still to come is *who* is asking: today the badge identifies the application, not the individual rep. Sign-in with company SSO, so each rep sees only their own accounts, is the next step (see [Known limitations](#known-limitations)).
-
-### Detailed security architecture
+### Security architecture
 
 The system is split into four trust zones. Traffic moves one step at a time, and each step has its own control. The browser never talks to the API or to a data store directly (except for downloading a document through a short-lived signed link).
 
