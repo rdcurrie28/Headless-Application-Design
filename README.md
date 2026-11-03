@@ -65,7 +65,7 @@ Why this matters:
 
 - **One contract, many surfaces.** The same `/v1/customers/{id}/360` call can drive this web app, a widget inside the CRM, a chat bot, or an AI agent that drafts a call plan. None of them needs to know that Snowflake, Postgres or S3 exist.
 - **Back ends can change without breaking clients.** Swap the health-score formula, move account ownership to Salesforce, or replace the ML model, and the API response stays the same.
-- **Security by design.** Database credentials and API keys never reach the browser. The front end calls only its own origin, and a proxy (Vite in development, nginx in production) adds the API key on the server side.
+- **Security by design.** Database credentials and API keys never reach the browser. The front end calls only its own origin, and a proxy (Vite in development, nginx in production) adds the API key on the server side. See [Security](#security) for the full picture.
 - **Independent delivery.** The front end and back end can be built, tested and deployed by different teams at different speeds.
 
 ## Product tour
@@ -110,6 +110,188 @@ API           ->  FastAPI routers, API-key auth, CORS
 **5. Caching only where it pays.** Warehouse reads are cached with a time limit, because ML scores and usage change daily, not by the second. Postgres reads and writes, such as next steps and contacts, are never cached, so a rep always sees their own changes.
 
 **6. Built on an established design system.** The UI uses PatternFly 6, an open-source enterprise design system, with a custom red, black and white theme. It meets WCAG color-contrast requirements, which the automated tests check.
+
+## Security
+
+This section describes how the application is protected today, where each control lives in the code, and what still needs to be added before real customer data goes through it. It separates **what is implemented** from **what is planned**, so nothing here should be read as a stronger guarantee than the code gives.
+
+### Security at a glance
+
+Think of the app as a secure office building. A request passes **five checkpoints** on its way to the data, and each one catches a different kind of problem. If one fails, the next still protects the data. Security people call this "defense in depth".
+
+```mermaid
+flowchart LR
+    U["👤 Sales rep<br/>opens the app"]
+
+    subgraph S1["Step 1: Front door (website)"]
+        direction TB
+        S1a["DOES: shows screens only.<br/>Holds no passwords or keys."]
+        S1b["STOPS: secrets being<br/>lifted from the web page"]
+    end
+
+    subgraph S2["Step 2: Badge check (gateway)"]
+        direction TB
+        S2a["DOES: attaches the company badge<br/>behind the scenes. Strangers<br/>without a badge are turned away."]
+        S2b["STOPS: outsiders calling<br/>the system directly"]
+    end
+
+    subgraph S3["Step 3: Inspection (the API)"]
+        direction TB
+        S3a["DOES: checks every request is the right<br/>type and size. Allows only reading,<br/>or adding a note. Trusts only approved sites."]
+        S3b["STOPS: malicious input,<br/>tampering, hijacked requests"]
+    end
+
+    subgraph S4["Step 4: Limited keys (data access)"]
+        direction TB
+        S4a["DOES: each data system opens with its<br/>own key giving the minimum access.<br/>Sales data is read-only."]
+        S4b["STOPS: one mistake or breach<br/>spreading to other systems"]
+    end
+
+    subgraph S5["Step 5: Records room (data)"]
+        direction TB
+        S5a["DOES: documents stay private.<br/>Shared only by links that<br/>expire in 15 minutes."]
+        S5b["STOPS: lingering access<br/>to shared files"]
+    end
+
+    R["🛟 Built to keep working: if one system is down,<br/>only that card says 'unavailable'.<br/>Errors never reveal how the system is built."]
+    N["🔜 Still to come: personal sign-in (SSO),<br/>each rep sees only their own accounts,<br/>and an audit trail of who did what"]
+
+    U --> S1 --> S2 --> S3 --> S4 --> S5
+    S3 -.-> R
+    S2 -.-> N
+```
+
+| What could go wrong | In plain English, what protects us today |
+|---|---|
+| Someone steals a password or key from the website | The website never holds one. Keys live only on the company's servers. |
+| A stranger tries to use the system directly | No valid badge, no entry. |
+| Someone sends bad or oversized data to break in | Every request is checked for type, size and allowed action before it goes anywhere. |
+| A malicious website tries to act on a rep's behalf | The system only accepts requests from approved sites. |
+| An attacker tries to trick the database with crafted text | Typed text is always treated as plain data, never as a command. |
+| One system is breached and the damage spreads | Each system has its own limited key, and sales data is read-only. |
+| A shared document link is passed around | Links stop working after 15 minutes. |
+| One back-end system goes down | The rest of the page keeps working and no internal details are shown. |
+
+**The three ideas to remember:** (1) secrets stay behind the front door, (2) every request is checked before it reaches the data, and (3) each system gets only the minimum access it needs.
+
+**Honest status for this proof of concept:** the five checkpoints above are in place and working. What is still to come is *who* is asking: today the badge identifies the application, not the individual rep. Sign-in with company SSO, so each rep sees only their own accounts, is the next step (see [Known limitations](#known-limitations)).
+
+### Detailed security architecture
+
+The system is split into four trust zones. Traffic moves one step at a time, and each step has its own control. The browser never talks to the API or to a data store directly (except for downloading a document through a short-lived signed link).
+
+```mermaid
+flowchart TB
+    subgraph Z0["Zone 0: Untrusted (internet / user device)"]
+        B["Browser<br/>React app<br/>holds NO secrets"]
+        X["Other clients<br/>CRM widget, bot, AI agent<br/>must send their own X-API-Key"]
+    end
+
+    subgraph Z1["Zone 1: Web tier (nginx, non-root, port 8080)"]
+        direction TB
+        W1["1. Optional HTTP basic auth<br/>DEMO_USER / DEMO_PASSWORD"]
+        W2["2. Same-origin reverse proxy<br/>only /v1/ and /readyz are forwarded"]
+        W3["3. Server-side key injection<br/>sets X-API-Key from env var<br/>blanks Authorization header"]
+        W4["4. HTTPS to upstream with SNI<br/>Host set to upstream hostname"]
+        W1 --> W2 --> W3 --> W4
+    end
+
+    subgraph Z2["Zone 2: API tier (FastAPI container, non-root uid 10001)"]
+        direction TB
+        A1["CORS allow-list<br/>GET/POST only, 2 headers allowed"]
+        A2["API-key check<br/>X-API-Key vs CI_API_KEYS<br/>401 on mismatch"]
+        A3["Input validation<br/>Pydantic types, enums, length limits,<br/>paging limits 1 to 200"]
+        A4["Services and repositories<br/>bound SQL parameters only,<br/>S3 keys built from a fixed prefix"]
+        A5["Safe errors<br/>per-section timeout, no stack traces<br/>to client, readyz reports ok/fail only"]
+        A1 --> A2 --> A3 --> A4
+        A4 --- A5
+    end
+
+    subgraph Z3["Zone 3: Data tier (credentials live only here)"]
+        direction LR
+        SF[("Snowflake<br/>key-pair auth<br/>read-only role INSIGHTS_API_RO")]
+        PG[("PostgreSQL<br/>asyncpg pool<br/>bound parameters")]
+        S3[("S3 bucket<br/>private objects<br/>presigned URLs, 15 min")]
+    end
+
+    SEC["Secrets: environment variables, .env (git-ignored),<br/>mounted key file for Snowflake"]
+
+    B -- "HTTPS, same origin /v1/..." --> W1
+    X -. "HTTPS + X-API-Key" .-> A1
+    W4 -- "HTTPS + X-API-Key" --> A1
+    A4 -- "role-scoped, read-only" --> SF
+    A4 -- "bound parameters" --> PG
+    A4 -- "list + presign only" --> S3
+    B -. "document download via presigned link<br/>(expires, bypasses API)" .-> S3
+    SEC -.-> Z2
+    SEC -.-> Z1
+```
+
+**How to read it.** A request from the browser (1) reaches nginx, which can demand a username and password; (2) is forwarded only if the path is `/v1/` or `/readyz`; (3) gets the API key added by nginx, so the browser never sees it; (4) is checked by the API for origin, key and input shape; (5) reaches the data stores through repositories that use bound parameters and least-privilege credentials. Documents are the one path that skips the API: the API hands back a short-lived signed S3 link and the browser downloads the file directly.
+
+### Controls in detail
+
+| # | Control | What it does | Where |
+|---|---|---|---|
+| 1 | **Secrets stay server-side** | The API key is added by nginx (production) or the Vite dev proxy (development). It is not in the JavaScript bundle, the browser, or any URL. Database passwords, the Snowflake private key and AWS credentials exist only in the API container's environment. | `web/nginx.conf.template`, `web/vite.config.ts`, `app/config.py` |
+| 2 | **API-key authentication** | Every `/v1/*` route requires a valid `X-API-Key`. Several keys can be configured (comma-separated) so a key can be rotated, or given to one integration and revoked on its own. A bad or missing key returns `401`. | `app/api/deps.py`, `CI_API_KEYS` |
+| 3 | **Header hygiene at the proxy** | nginx replaces any `X-API-Key` the client sends with its own and clears the `Authorization` header, so a caller cannot pass their own credentials through the proxy. | `web/nginx.conf.template` |
+| 4 | **Narrow proxy surface** | The web tier forwards only `/v1/` and `/readyz`. The interactive docs (`/docs`) and `/healthz` are not reachable through the public web origin. | `web/nginx.conf.template` |
+| 5 | **CORS allow-list** | Only origins listed in `CI_CORS_ORIGINS` may call the API from a browser. Methods are limited to `GET` and `POST`, and headers to `X-API-Key` and `Content-Type`. Because the UI is served from the same origin as its proxy, production needs no cross-origin access at all. | `app/main.py` |
+| 6 | **Input validation** | Request bodies are Pydantic models: `action_type` must be a known value, `note` is 1 to 4,000 characters, `due_date` must be a real date. `limit` is capped at 200 and `offset` cannot be negative. Invalid input is rejected with `422` before any query runs. | `app/schemas.py`, `app/api/customers.py` |
+| 7 | **SQL injection prevention** | All Postgres queries are fixed strings with `$1` to `$n` placeholders, and values are bound by `asyncpg`. The Snowflake source also takes bound parameters. User input is never concatenated into SQL. | `app/repositories/postgres_customers.py`, `app/sources/snowflake_source.py` |
+| 8 | **Least-privilege data access** | Snowflake runs under `INSIGHTS_API_RO`, which has only `USAGE` and `SELECT` on one schema, and can sign in with a **key pair** instead of a password. The API never writes to Snowflake or S3. Writes are limited to one Postgres table (`rep_actions`). | `sql/snowflake/001_sales_insights.sql`, `app/sources/snowflake_source.py` |
+| 9 | **Short-lived document access** | S3 objects stay private. The API lists a customer's objects under a fixed prefix (`customers/{id}/`) and returns presigned `GET` links that expire after `CI_S3_PRESIGN_SECONDS` (default 900 seconds). | `app/repositories/s3_documents.py`, `app/sources/s3_source.py` |
+| 10 | **Customer must exist** | Per-customer routes first look the customer up in Postgres and return `404` if it is unknown, so arbitrary IDs are not used to build S3 prefixes or warehouse queries. | `existing_customer` in `app/api/customers.py` |
+| 11 | **Hardened containers** | The API runs as a non-root user (uid 10001) on a slim base image. The web image uses `nginx-unprivileged`, runs as uid 101 and listens on port 8080. | `Dockerfile`, `web/Dockerfile` |
+| 12 | **Failure isolation** | Each 360 section has its own timeout. A failing back end shows up as one named entry in `errors[]` instead of taking the page down. `/readyz` reports only `name`, `mode` and `ok`. | `app/services/customer360.py`, `app/api/system.py` |
+| 13 | **Safe front-end rendering** | React escapes all rendered values and the code never uses `dangerouslySetInnerHTML`. Phone numbers are reduced to digits and `+` before use in a `tel:` link. External document links use `rel="noreferrer"`. | `web/src/pages/` |
+| 14 | **Secrets kept out of git** | `.env` is git-ignored and only `.env.example` with placeholders is committed. The Snowflake private key is read from a mounted file path, not from an environment string. | `.gitignore`, `.env.example` |
+| 15 | **Optional site login for demos** | Setting `DEMO_USER` and `DEMO_PASSWORD` turns on HTTP basic auth in front of the whole web app. With neither set, the site is open. | `web/15-demo-auth.sh` |
+
+### Threats and how they are handled
+
+| Threat | Mitigation | Status |
+|---|---|---|
+| API key stolen from the browser | The key is never sent to the browser | Mitigated |
+| Unauthenticated direct calls to the API | `401` without a valid key | Mitigated only if `CI_API_KEYS` is set (see limitation 2) |
+| SQL injection | Bound parameters, fixed query text | Mitigated |
+| Oversized or malformed input | Pydantic validation, length and paging limits | Mitigated |
+| Cross-site requests from other websites | CORS allow-list; no cookies or ambient credentials are used | Mitigated |
+| Cross-site scripting | React escaping, no raw HTML injection | Mitigated |
+| Leaked database or warehouse credentials | Read-only Snowflake role, key-pair option, secrets outside git | Partly mitigated |
+| A shared document link being reused | 15-minute expiry on presigned URLs | Partly mitigated (a link works for anyone who has it until it expires) |
+| One back end failing or being slow | Per-section timeouts and partial results | Mitigated |
+| A rep seeing accounts that are not theirs | Not enforced yet | **Open** (roadmap: SSO and book-of-business filtering) |
+
+### Known limitations
+
+These are gaps in the current code. They are acceptable for a local or demo deployment and **should be closed before production use with real customer data**.
+
+1. **No per-user identity or authorization.** The API key identifies a *client application*, not a person. Every caller with the key can read every account and add actions to any customer. `created_by` on a next step is supplied by the caller and is not verified.
+2. **Authentication fails open.** If `CI_API_KEYS` is empty, the API accepts all requests. The shipped `.env.example` uses the placeholder key `dev-key-change-me`, which must be replaced in any shared environment.
+3. **The web origin is a gateway to the API.** Because nginx adds the key to every request, anyone who can reach the web tier can use the API through it. In production the web tier needs its own sign-in. The demo basic-auth switch is a stopgap, and it writes the password unhashed to a temp file inside the container.
+4. **API keys are checked with a plain set lookup** and are not rate-limited, so there is no brute-force throttling or constant-time comparison.
+5. **No TLS or security headers in the repo itself.** TLS is expected from the hosting platform (for example Cloud Run or a load balancer). nginx does not yet set `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy` or `Strict-Transport-Security`.
+6. **`/readyz` is public.** It shows which back-end systems exist, their mode (`live` or `fake`) and whether each is healthy. The cache-clear endpoint `/v1/admin/cache/clear` is protected only by the same API key as every other route.
+7. **Search wildcards are not escaped.** `%` and `_` typed into the account search act as `ILIKE` wildcards. This cannot change the query, only broaden matches.
+8. **Sample credentials in Docker Compose.** Postgres (`insights/insights`) and MinIO (`minioadmin`) use throwaway passwords and publish their ports to the host. That file is for local development only.
+9. **No audit log.** Reads and writes are not recorded per user, and there is no request-ID tracing.
+10. **Dependencies are not scanned automatically** (no Dependabot, `pip-audit` or `npm audit` in CI).
+
+### Hardening roadmap
+
+In priority order:
+
+1. **SSO with OIDC/JWT.** Validate a signed token in a FastAPI dependency, take `created_by` from the token instead of the request body, and filter `/customers` and `/portfolio` by the caller's book of business.
+2. **Fail closed.** Refuse to start, or reject all requests, when no API key or token validator is configured outside local mode.
+3. **Protect the web tier.** Put the web app behind SSO (for example Identity-Aware Proxy on Cloud Run) so the nginx key injection is not an open door.
+4. **Add response security headers** in nginx, including a restrictive Content-Security-Policy.
+5. **Rate limiting and constant-time key comparison** (`secrets.compare_digest`), with keys stored hashed.
+6. **Secret management.** Move keys and credentials to a secret manager (Google Secret Manager or AWS Secrets Manager) and rotate them on a schedule.
+7. **Audit logging** of who read or changed which account, sent to a central log store.
+8. **Network isolation.** Put the databases on a private network, make the API reachable only from the web tier, and require TLS for the Postgres connection.
+9. **CI security checks:** dependency audit, container image scanning and secret scanning.
 
 ## Tech stack
 
